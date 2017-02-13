@@ -558,7 +558,6 @@ class Audio(pykka.ThreadingActor):
         :param uri: the URI to play
         :type uri: string
         """
-
         # XXX: Hack to workaround issue on Mac OS X where volume level
         # does not persist between track changes. mopidy/mopidy#886
         if self.mixer is not None:
@@ -764,6 +763,13 @@ class Audio(pykka.ThreadingActor):
             logger.warning(
                 'Setting GStreamer state to %s failed', state.value_name)
             return False
+        if result == Gst.StateChangeReturn.NO_PREROLL:
+            logger.info('Got NO_PREROLL')
+            source = self._playbin.get_property('source')
+            if hasattr(source.props, 'is-live'):
+                logger.info('Setting GStreamer pipeline to is-live')
+                source.set_property('is-live', True)
+
         # TODO: at this point we could already emit stopped event instead
         # of faking it in the message handling when result=OK
         return True
