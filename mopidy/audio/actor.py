@@ -415,6 +415,7 @@ class Audio(pykka.ThreadingActor):
         self._buffering = False
         self._tags = {}
         self._pending_uri = None
+        self._is_live = False
         self._pending_tags = None
         self._pending_metadata = None
 
@@ -547,18 +548,22 @@ class Audio(pykka.ThreadingActor):
         else:
             self._appsrc.reset()
 
+        if hasattr(source.props, 'is-live'):
+            source.set_property('is-live', self._is_live)
+
         utils.setup_proxy(source, self._config['proxy'])
 
-    def set_uri(self, uri):
+    def set_uri(self, uri, is_live=False):
         """
         Set URI of audio to be played.
 
         You *MUST* call :meth:`prepare_change` before calling this method.
 
         :param uri: the URI to play
+        :param is_live: sets the is-live property of the source if supported
         :type uri: string
         """
-
+        self._is_live = is_live
         # XXX: Hack to workaround issue on Mac OS X where volume level
         # does not persist between track changes. mopidy/mopidy#886
         if self.mixer is not None:

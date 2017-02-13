@@ -248,7 +248,7 @@ class PlaybackProvider(object):
                 'Backend translated URI from %s to %s', track.uri, uri)
         if not uri:
             return False
-        self.audio.set_uri(uri).get()
+        self.audio.set_uri(uri, track.length is None).get()
         return True
 
     def resume(self):
