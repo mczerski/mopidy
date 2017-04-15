@@ -548,6 +548,9 @@ class Audio(pykka.ThreadingActor):
         else:
             self._appsrc.reset()
 
+        if source.get_factory().get_name() == 'rtspsrc':
+            source.set_property('latency', 500)
+
         if hasattr(source.props, 'is-live'):
             source.set_property('is-live', self._is_live)
 
