@@ -6,6 +6,8 @@ import threading
 
 import pykka
 
+from gi.repository import GstAudio
+
 from mopidy import exceptions
 from mopidy.audio import tags as tags_lib, utils
 from mopidy.audio.constants import PlaybackState
@@ -144,6 +146,9 @@ class SoftwareMixer(object):
         self._last_volume = None
         self._last_mute = None
         self._signals = utils.Signals()
+        self.min_volume = 0#config['softwaremixer']['min_volume']
+        self.max_volume = 100#config['softwaremixer']['max_volume']
+        self.volume_scale = 'cubic'#config['softwaremixer']['volume_scale']
 
     def setup(self, element, mixer_ref):
         self._element = element
@@ -161,10 +166,10 @@ class SoftwareMixer(object):
         self._mixer.teardown()
 
     def get_volume(self):
-        return int(round(self._element.get_property('volume') * 100))
+        return int(round(self.volume_to_mixer_volume(self._element.get_property('volume') * 100.0)))
 
     def set_volume(self, volume):
-        self._element.set_property('volume', volume / 100.0)
+        self._element.set_property('volume', self.mixer_volume_to_volume(volume) / 100.0)
 
     def get_mute(self):
         return self._element.get_property('mute')
@@ -172,6 +177,40 @@ class SoftwareMixer(object):
     def set_mute(self, mute):
         self._element.set_property('mute', bool(mute))
 
+    def mixer_volume_to_volume(self, mixer_volume):
+        volume = mixer_volume
+        if self.volume_scale == 'cubic':
+            volume = GstAudio.StreamVolume.convert_volume(
+                GstAudio.StreamVolumeFormat.CUBIC,
+                GstAudio.StreamVolumeFormat.LINEAR,
+                volume / 100.0) * 100.0
+        elif self.volume_scale == 'log':
+            # Uses our own formula rather than GstAudio.StreamVolume.
+            # convert_volume(GstAudio.StreamVolumeFormat.LINEAR,
+            # GstAudio.StreamVolumeFormat.DB, mixer_volume / 100.0)
+            # as the result is a DB value, which we can't work with as
+            # self._mixer provides a percentage.
+            volume = math.pow(10, volume / 50.0)
+        volume = ((volume - self.min_volume) * 100.0
+                  / (self.max_volume - self.min_volume))
+        return volume
+
+    def volume_to_mixer_volume(self, volume):
+        mixer_volume = (self.min_volume + volume *
+                        (self.max_volume - self.min_volume) / 100.0)
+        if self.volume_scale == 'cubic':
+            mixer_volume = GstAudio.StreamVolume.convert_volume(
+                GstAudio.StreamVolumeFormat.LINEAR,
+                GstAudio.StreamVolumeFormat.CUBIC,
+                mixer_volume / 100.0) * 100.0
+        elif self.volume_scale == 'log':
+            # Uses our own formula rather than GstAudio.StreamVolume.
+            # convert_volume(GstAudio.StreamVolumeFormat.LINEAR,
+            # GstAudio.StreamVolumeFormat.DB, mixer_volume / 100.0)
+            # as the result is a DB value, which we can't work with as
+            # self._mixer wants a percentage.
+            mixer_volume = 50 * math.log10(mixer_volume)
+        return mixer_volume
 
 class _Handler(object):
 
