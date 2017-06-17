@@ -596,6 +596,11 @@ class Audio(pykka.ThreadingActor):
         else:
             self._appsrc.reset()
 
+        if source.get_factory().get_name() == 'rtspsrc':
+            source.set_property('latency', 500)
+        elif source.get_factory().get_name() == 'souphttpsrc':
+            source.set_property('is-live', True)
+
         utils.setup_proxy(source, self._config['proxy'])
 
     def set_uri(self, uri):
