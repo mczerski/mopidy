@@ -324,6 +324,15 @@ class _Handler(object):
 
     def on_async_done(self):
         gst_logger.debug('Got ASYNC_DONE bus message.')
+        
+        result, current, pending = self._element.get_state(timeout=Gst.CLOCK_TIME_NONE)
+        gst_logger.debug('ASYNC %s' % str(result))
+        if False: #result == Gst.StateChangeReturn.NO_PREROLL:
+            logger.info('Async: Got NO_PREROLL')
+            source = self._element.get_property('source')
+            if hasattr(source.props, 'is-live'):
+                logger.info('Async: Setting GStreamer pipeline to is-live')
+                source.set_property('is-live', True)
 
     def on_tag(self, taglist):
         tags = tags_lib.convert_taglist(taglist)
@@ -456,10 +465,6 @@ class Audio(pykka.ThreadingActor):
     def _setup_playbin(self):
         playbin = Gst.ElementFactory.make('playbin')
         playbin.set_property('flags', _GST_PLAY_FLAGS_AUDIO)
-
-        # TODO: turn into config values...
-        playbin.set_property('buffer-size', 5 << 20)  # 5MB
-        playbin.set_property('buffer-duration', 5 * Gst.SECOND)
 
         self._signals.connect(playbin, 'source-setup', self._on_source_setup)
         self._signals.connect(playbin, 'about-to-finish',
