@@ -336,7 +336,7 @@ class TracklistController:
         deprecation.warn("core.tracklist.previous_track")
         tl_track is None or validation.check_instance(tl_track, TlTrack)
 
-        if self.get_repeat() or self.get_consume() or self.get_random():
+        if self.get_consume() or self.get_random():
             return tl_track
 
         position = self.index(tl_track)
